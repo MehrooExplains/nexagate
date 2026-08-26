@@ -110,13 +110,13 @@ UDP: 443
 
 ## نصب
 
-کل پروژه را clone کنید، نصب‌کننده را مرور کنید و سپس با root اجرا کنید:
+با حسابی که دسترسی root یا `sudo` دارد، نصب تعاملی را با یک دستور اجرا کنید:
 
 ```bash
-git clone https://github.com/MehrooExplains/nexagate.git
-cd nexagate
-sudo ./install.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/MehrooExplains/nexagate/main/install.sh)
 ```
+
+اسکریپت تک‌فایلی در صورت نیاز خودکار از `sudo` استفاده می‌کند، نسخهٔ کامل پروژه را از همین مخزن می‌گیرد، پیش‌نیازها را بررسی می‌کند، فقط مواردی را که موجود نیستند نصب می‌کند و سپس نصب تعاملی را ادامه می‌دهد. برای بررسی کد پیش از اجرا، فایل [install.sh](install.sh) را باز کنید؛ روش clone کردن مخزن و اجرای `sudo ./install.sh` نیز همچنان پشتیبانی می‌شود.
 
 نصب‌کننده این موارد را سؤال می‌کند:
 

@@ -15,13 +15,17 @@ CERTDUO_COMMIT=550b5b0b55405b1f89225893189503596296b9c8
 CERTDUO_SHA256=b9c9e4545bad21bcdd55da0f2c57bc7504239cf5826b8dea50eac6ae171dccb8
 GO_VERSION=1.27.0
 GO_SHA256=675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685
+SOURCE_ARCHIVE_URL=https://codeload.github.com/MehrooExplains/nexagate/tar.gz/refs/heads/main
+SOURCE_SCRIPT_URL=https://raw.githubusercontent.com/MehrooExplains/nexagate/main/install.sh
 
 case ${1:-} in
   -h|--help)
     cat <<'HELP'
 NexaGate interactive installer
 
-Usage: sudo ./install.sh
+Usage:
+  bash <(curl -fsSL https://raw.githubusercontent.com/MehrooExplains/nexagate/main/install.sh)
+  sudo ./install.sh
 
 The installer checks prerequisites, obtains a domain or public-IP certificate
 through CertDuo, installs verified runtime components, and enables NexaGate.
@@ -36,8 +40,35 @@ HELP
   *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
 esac
 
+say() { printf '\n[NexaGate] %s\n' "$*"; }
+die() { printf '\n[NexaGate] ERROR: %s\n' "$*" >&2; exit 1; }
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+# A process-substitution command such as `bash <(curl ...)` gives Bash only this
+# file. Download a stable temporary copy before sudo so the privileged process
+# never depends on a potentially closed /dev/fd path.
+if [[ ! -f $SCRIPT_DIR/go.mod || ! -d $SCRIPT_DIR/cmd/nexagate ]]; then
+  if (( EUID != 0 )); then
+    command -v sudo >/dev/null 2>&1 || die "Run as root, or install sudo and use an account allowed to run it."
+    command -v curl >/dev/null 2>&1 || die "curl is required to download NexaGate."
+    SELF_COPY_DIR=$(mktemp -d /tmp/nexagate-bootstrap-script.XXXXXX)
+    curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --connect-timeout 15 \
+      --output "$SELF_COPY_DIR/install.sh" "$SOURCE_SCRIPT_URL"
+    chmod 0700 "$SELF_COPY_DIR/install.sh"
+    trap '[[ $SELF_COPY_DIR == /tmp/nexagate-bootstrap-script.* ]] && rm -rf -- "$SELF_COPY_DIR"' EXIT
+    sudo NEXAGATE_SELF_COPY_DIR="$SELF_COPY_DIR" bash "$SELF_COPY_DIR/install.sh" "$@"
+    exit $?
+  fi
+fi
+
+if (( EUID != 0 )); then
+  command -v sudo >/dev/null 2>&1 || die "Run as root, or install sudo and use an account allowed to run it."
+  exec sudo bash "$SCRIPT_DIR/install.sh" "$@"
+fi
+
 WORK_DIR=$(mktemp -d /tmp/nexagate-install.XXXXXX)
+SOURCE_DIR=
 REMOVE_BOOTSTRAP=0
 cleanup() {
   if (( REMOVE_BOOTSTRAP == 1 )); then
@@ -45,17 +76,53 @@ cleanup() {
     systemctl reload nginx >/dev/null 2>&1 || true
   fi
   rm -rf -- "$WORK_DIR"
+  if [[ -n ${SOURCE_DIR:-} && $SOURCE_DIR == /tmp/nexagate-source.* ]]; then
+    rm -rf -- "$SOURCE_DIR"
+  fi
+  if [[ -n ${NEXAGATE_SELF_COPY_DIR:-} && $NEXAGATE_SELF_COPY_DIR == /tmp/nexagate-bootstrap-script.* ]]; then
+    rm -rf -- "$NEXAGATE_SELF_COPY_DIR"
+  fi
 }
 trap cleanup EXIT
 
-say() { printf '\n[NexaGate] %s\n' "$*"; }
-die() { printf '\n[NexaGate] ERROR: %s\n' "$*" >&2; exit 1; }
-
-[[ $EUID -eq 0 ]] || die "Run this installer as root: sudo ./install.sh"
 [[ $(uname -s) == Linux ]] || die "Linux is required."
 [[ $(uname -m) == x86_64 ]] || die "Version $VERSION supports amd64/x86_64 only because the official Psiphon binary is x86_64-only."
 command -v systemctl >/dev/null 2>&1 || die "A systemd-based server is required."
-[[ -f $SCRIPT_DIR/go.mod && -d $SCRIPT_DIR/cmd/nexagate ]] || die "Run install.sh from a complete NexaGate clone, not as a standalone file."
+
+if [[ ! -f $SCRIPT_DIR/go.mod || ! -d $SCRIPT_DIR/cmd/nexagate ]]; then
+  say "Standalone installer detected; downloading the complete NexaGate source..."
+  if ! command -v tar >/dev/null 2>&1 || ! command -v gzip >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gzip tar
+    elif command -v dnf >/dev/null 2>&1; then
+      dnf install -y ca-certificates curl gzip tar
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y ca-certificates curl gzip tar
+    else
+      die "Install curl, tar, gzip, and CA certificates, then run the installer again."
+    fi
+  fi
+  command -v curl >/dev/null 2>&1 || die "curl is required to download NexaGate."
+  command -v tar >/dev/null 2>&1 || die "tar is required to unpack NexaGate."
+  command -v gzip >/dev/null 2>&1 || die "gzip is required to unpack NexaGate."
+
+  SOURCE_DIR=$(mktemp -d /tmp/nexagate-source.XXXXXX)
+  curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --connect-timeout 15 \
+    --output "$SOURCE_DIR/nexagate.tar.gz" "$SOURCE_ARCHIVE_URL"
+  while IFS= read -r archive_path; do
+    [[ $archive_path == nexagate-main || $archive_path == nexagate-main/* ]] || \
+      die "The downloaded source archive contains an unexpected path."
+    [[ $archive_path != /* && $archive_path != *'/../'* && $archive_path != ../* ]] || \
+      die "The downloaded source archive contains an unsafe path."
+  done < <(tar -tzf "$SOURCE_DIR/nexagate.tar.gz")
+  tar -xzf "$SOURCE_DIR/nexagate.tar.gz" -C "$SOURCE_DIR"
+  [[ -f $SOURCE_DIR/nexagate-main/go.mod && -d $SOURCE_DIR/nexagate-main/cmd/nexagate ]] || \
+    die "The downloaded NexaGate source is incomplete."
+  NEXAGATE_SELF_COPY_DIR='' bash "$SOURCE_DIR/nexagate-main/install.sh" "$@"
+  exit $?
+fi
+
 [[ ! -e /etc/nexagate/panel.json ]] || die "NexaGate already appears installed. This installer will not overwrite its secrets or user database."
 
 if command -v apt-get >/dev/null 2>&1; then

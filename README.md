@@ -110,13 +110,13 @@ For a domain certificate, create an `A` record pointing to this server before in
 
 ## Installation
 
-Clone the complete project, review the installer, and run it as root:
+Run the interactive installer with one command from an account that has root or `sudo` access:
 
 ```bash
-git clone https://github.com/MehrooExplains/nexagate.git
-cd nexagate
-sudo ./install.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/MehrooExplains/nexagate/main/install.sh)
 ```
+
+The standalone script automatically elevates with `sudo` when necessary, downloads the complete project from this repository, checks prerequisites, installs only missing packages, and then continues with the interactive setup. To audit it first, open [install.sh](install.sh); cloning the repository and running `sudo ./install.sh` remains supported.
 
 The installer asks for:
 
