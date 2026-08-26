@@ -1,0 +1,5 @@
+/nexagate
+*.log
+*.tmp
+.idea/
+.vscode/

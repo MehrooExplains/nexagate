@@ -1,0 +1,30 @@
+[Unit]
+Description=NexaGate Hysteria2 inbound
+After=network-online.target nexagate-psiphon.service wg-quick@warp0.service nexagate-firewall.service nexagate-dns.service
+Wants=network-online.target nexagate-psiphon.service wg-quick@warp0.service nexagate-firewall.service nexagate-dns.service
+
+[Service]
+Type=simple
+User=nexagate-hysteria
+Group=nexagate-hysteria
+SupplementaryGroups=nexagate
+WorkingDirectory=/var/lib/nexagate/hysteria
+ExecStart=/usr/local/lib/nexagate/hysteria server --config /etc/nexagate/generated/hysteria.yaml
+Restart=on-failure
+RestartSec=3s
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/nexagate/hysteria
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

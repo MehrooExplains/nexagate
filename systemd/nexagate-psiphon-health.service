@@ -1,0 +1,7 @@
+[Unit]
+Description=Check NexaGate Psiphon egress
+After=nexagate-psiphon.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nexagate/psiphon-health.sh

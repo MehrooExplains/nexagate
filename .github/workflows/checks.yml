@@ -1,0 +1,61 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.0'
+          check-latest: true
+      - name: Format
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Test
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Bash syntax
+        run: bash -n install.sh scripts/*.sh
+      - name: ShellCheck
+        run: shellcheck install.sh scripts/*.sh
+
+  release-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.0'
+          check-latest: true
+      - name: Download and verify pinned cores
+        run: |
+          curl -fL --retry 3 -o xray.zip https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
+          echo '23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae  xray.zip' | sha256sum -c -
+          unzip -jo xray.zip xray -d .
+          curl -fL --retry 3 -o hysteria https://github.com/HyNetworks/hysteria/releases/download/app/v2.12.2/hysteria-linux-amd64
+          echo '6493dfffd55b5883f64c76c63880ecc32988f0c568c9ca9014907877b4d55f94  hysteria' | sha256sum -c -
+          curl -fL --retry 3 -o psiphon https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/50543d5e771ed7f2d6ccfedde9009fc2d3a799ff/linux/psiphon-tunnel-core-x86_64
+          echo '47f8956f3f3cf9813d4cbee4665adc99b1f8ffa788c13dc5e03e824cc29217b0  psiphon' | sha256sum -c -
+          chmod +x xray hysteria psiphon
+      - name: Validate generated release configs
+        env:
+          NEXAGATE_TEST_XRAY: ${{ github.workspace }}/xray
+          NEXAGATE_TEST_HYSTERIA: ${{ github.workspace }}/hysteria
+          NEXAGATE_TEST_PSIPHON: ${{ github.workspace }}/psiphon
+        run: go test -run TestGeneratedConfigsWithReleaseBinaries -v ./internal/app

@@ -1,0 +1,28 @@
+[Unit]
+Description=NexaGate Xray inbounds
+After=network-online.target nexagate-psiphon.service wg-quick@warp0.service nexagate-firewall.service nexagate-dns.service
+Wants=network-online.target nexagate-psiphon.service wg-quick@warp0.service nexagate-firewall.service nexagate-dns.service
+
+[Service]
+Type=simple
+User=nexagate-xray
+Group=nexagate-xray
+SupplementaryGroups=nexagate
+ExecStart=/usr/local/lib/nexagate/xray run -config /etc/nexagate/generated/xray.json
+Restart=on-failure
+RestartSec=3s
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

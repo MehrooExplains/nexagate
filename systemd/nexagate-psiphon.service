@@ -1,0 +1,28 @@
+[Unit]
+Description=NexaGate Psiphon TCP egress
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nexagate-psiphon
+Group=nexagate-psiphon
+SupplementaryGroups=nexagate
+WorkingDirectory=/var/lib/nexagate/psiphon
+ExecStart=/usr/local/lib/nexagate/psiphon-tunnel-core -config /etc/nexagate/generated/psiphon.json -dataRootDirectory /var/lib/nexagate/psiphon -listenInterface lo
+Restart=always
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/nexagate/psiphon
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

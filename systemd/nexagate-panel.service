@@ -1,0 +1,29 @@
+[Unit]
+Description=NexaGate management panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nexagate-panel
+Group=nexagate-panel
+SupplementaryGroups=nexagate
+ExecStart=/usr/local/bin/nexagate serve --config /etc/nexagate/panel.json
+Restart=on-failure
+RestartSec=3s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/etc/nexagate /var/lib/nexagate
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically optimize NexaGate WARP endpoint
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

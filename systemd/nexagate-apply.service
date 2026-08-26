@@ -1,0 +1,7 @@
+[Unit]
+Description=Validate and apply generated NexaGate configuration
+After=nexagate-panel.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nexagate/apply-config.sh

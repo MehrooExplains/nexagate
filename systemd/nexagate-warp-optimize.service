@@ -1,0 +1,10 @@
+[Unit]
+Description=Probe and select the best WARP endpoint
+After=network-online.target wg-quick@warp0.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nexagate/warp-optimize.sh
+Nice=10
+IOSchedulingClass=idle

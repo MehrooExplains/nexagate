@@ -1,0 +1,28 @@
+[Unit]
+Description=NexaGate DNS relay through WARP
+After=network-online.target wg-quick@warp0.service nexagate-firewall.service
+Wants=network-online.target wg-quick@warp0.service nexagate-firewall.service
+
+[Service]
+Type=simple
+User=nexagate-dns
+Group=nexagate-dns
+SupplementaryGroups=nexagate
+ExecStart=/usr/local/bin/nexagate dns-proxy --listen 127.0.0.1:1053 --upstream 1.1.1.1:53 --interface warp0
+Restart=on-failure
+RestartSec=3s
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=false
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

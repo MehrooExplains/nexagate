@@ -1,0 +1,21 @@
+[Unit]
+Description=Download, verify, and install a NexaGate update
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/nexagate/update.request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nexagate/update.sh
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+ReadWritePaths=/usr/local/bin /usr/local/lib/nexagate /var/lib/nexagate /run/lock

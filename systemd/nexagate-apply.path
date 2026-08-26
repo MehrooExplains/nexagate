@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch NexaGate generated configuration
+
+[Path]
+PathChanged=/etc/nexagate/generated/.reload
+Unit=nexagate-apply.service
+
+[Install]
+WantedBy=multi-user.target
