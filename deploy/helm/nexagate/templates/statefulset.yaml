@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nexagate.fullname" . }}
+spec:
+  serviceName: {{ include "nexagate.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "nexagate.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "nexagate.name" . }}
+    spec:
+      containers:
+        - name: nexagate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args: ["serve", "--config", "/var/lib/nexagate/panel.json"]
+          ports:
+            - name: http
+              containerPort: 9080
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nexagate
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
