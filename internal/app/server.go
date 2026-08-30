@@ -100,6 +100,7 @@ func Serve(configPath, version string) error {
 	mux.HandleFunc("/settings/panel", s.auth(s.panelSettings))
 	mux.HandleFunc("/settings/psiphon", s.auth(s.requireCSRF(s.updatePsiphon)))
 	mux.HandleFunc("/api/metrics", s.auth(s.metricsAPI))
+	mux.HandleFunc("/api/users", s.auth(s.usersAPI))
 	mux.HandleFunc("/metrics", s.auth(s.prometheusMetrics))
 	mux.HandleFunc("/api/update-status", s.auth(s.updateStatusAPI))
 	mux.HandleFunc("/updates/run", s.auth(s.requireCSRF(s.triggerUpdate)))
@@ -157,6 +158,37 @@ func (s *server) prometheusMetrics(w http.ResponseWriter, r *http.Request) {
 	f("tcp_sockets", m.TCPSockets)
 	f("udp_sockets", m.UDPSockets)
 	f("uptime_seconds", m.UptimeSeconds)
+}
+
+func (s *server) usersAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		db, err := s.store.Load()
+		if err != nil {
+			http.Error(w, "internal error", 500)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(db.Users)
+	case http.MethodPost:
+		var in struct {
+			Name string `json:"name"`
+			Days int    `json:"days"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&in); err != nil {
+			http.Error(w, "invalid JSON", 400)
+			return
+		}
+		user, err := s.store.Add(in.Name, in.Days)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(user)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *server) login(w http.ResponseWriter, r *http.Request) {

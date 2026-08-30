@@ -42,6 +42,27 @@ paths:
       security: [{sessionCookie: []}]
       responses:
         '200': {description: HTML user management page}
+  /api/users:
+    get:
+      summary: List users as JSON
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {description: User list}
+    post:
+      summary: Create a user
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+                days: {type: integer, minimum: 0}
+      responses:
+        '201': {description: User created}
 components:
   securitySchemes:
     sessionCookie:
