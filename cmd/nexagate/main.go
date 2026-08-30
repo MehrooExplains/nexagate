@@ -19,6 +19,51 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "user":
+		if len(os.Args) < 3 {
+			log.Fatal("usage: nexagate user add|disable")
+		}
+		fs := flag.NewFlagSet("user", flag.ExitOnError)
+		configPath := fs.String("config", "/etc/nexagate/panel.json", "configuration")
+		name := fs.String("name", "", "username")
+		days := fs.Int("days", 30, "validity in days")
+		id := fs.String("id", "", "user id")
+		_ = fs.Parse(os.Args[3:])
+		cfg, err := app.LoadConfigForCLI(*configPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		store := app.NewStore(cfg.StatePath)
+		switch os.Args[2] {
+		case "add":
+			if *name == "" {
+				log.Fatal("--name is required")
+			}
+			u, err := store.Add(*name, *days)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("created %s (%s)\n", u.Name, u.ID)
+		case "disable":
+			if *id == "" {
+				log.Fatal("--id is required")
+			}
+			if err := store.Toggle(*id); err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("user state toggled")
+		default:
+			log.Fatal("unknown user command")
+		}
+	case "stats":
+		fs := flag.NewFlagSet("stats", flag.ExitOnError)
+		configPath := fs.String("config", "/etc/nexagate/panel.json", "configuration")
+		_ = fs.Parse(os.Args[2:])
+		cfg, err := app.LoadConfigForCLI(*configPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("state=%s\n", cfg.StatePath)
 	case "serve":
 		fs := flag.NewFlagSet("serve", flag.ExitOnError)
 		configPath := fs.String("config", "/etc/nexagate/panel.json", "panel configuration")

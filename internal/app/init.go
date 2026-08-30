@@ -256,6 +256,9 @@ func loadConfig(path string) (Config, error) {
 	return cfg, nil
 }
 
+// LoadConfigForCLI exposes validated configuration loading to the management CLI.
+func LoadConfigForCLI(path string) (Config, error) { return loadConfig(path) }
+
 func loadConfigAndMigrate(path string) (Config, bool, error) {
 	cfg, err := decodeConfig(path)
 	if err != nil {
