@@ -65,6 +65,39 @@ func main() {
 		if err := app.Doctor(*configPath, os.Stdout); err != nil {
 			log.Fatal(err)
 		}
+	case "backup":
+		fs := flag.NewFlagSet("backup", flag.ExitOnError)
+		action := fs.String("action", "create", "create, restore, or list")
+		output := fs.String("output", "/var/backups/nexagate.backup", "backup file")
+		input := fs.String("input", "", "backup file to restore or list")
+		password := fs.String("password", "", "optional encryption password")
+		configPath := fs.String("config", "/etc/nexagate/panel.json", "configuration")
+		statePath := fs.String("state", "/var/lib/nexagate/users.json", "user database")
+		generated := fs.String("generated-dir", "/etc/nexagate/generated", "generated configs")
+		_ = fs.Parse(os.Args[2:])
+		switch *action {
+		case "create":
+			if err := app.BackupCreate(*output, *configPath, *statePath, *generated, *password); err != nil {
+				log.Fatal(err)
+			}
+		case "restore":
+			if *input == "" {
+				log.Fatal("--input is required")
+			}
+			if err := app.BackupRestore(*input, *output, *password); err != nil {
+				log.Fatal(err)
+			}
+		case "list":
+			path := *input
+			if path == "" {
+				path = *output
+			}
+			if err := app.BackupList(path); err != nil {
+				log.Fatal(err)
+			}
+		default:
+			log.Fatal("unknown backup action")
+		}
 	case "dns-proxy":
 		fs := flag.NewFlagSet("dns-proxy", flag.ExitOnError)
 		listen := fs.String("listen", "127.0.0.1:1053", "UDP listen address")
@@ -92,6 +125,7 @@ Usage:
   nexagate init   [options]
   nexagate render [--config FILE]
   nexagate doctor [--config FILE]
+  nexagate backup --action create|restore|list [options]
   nexagate dns-proxy [--listen ADDR --upstream ADDR --interface NAME]
   nexagate version`)
 }
