@@ -62,6 +62,9 @@ func newMetricsCollector() *metricsCollector {
 		lastNetwork: time.Now(), interfaceName: interfaceName}
 }
 
+// CollectMetrics returns one live snapshot for external management tools.
+func CollectMetrics() liveMetrics { return newMetricsCollector().collect() }
+
 func (c *metricsCollector) collect() liveMetrics {
 	c.mu.Lock()
 	defer c.mu.Unlock()

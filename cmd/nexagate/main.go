@@ -63,7 +63,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("state=%s\n", cfg.StatePath)
+		m := app.CollectMetrics()
+		fmt.Printf("state=%s\ncpu=%.1f%% memory=%.1f%% swap=%.1f%% storage=%.1f%%\nupload=%.0f B/s download=%.0f B/s sockets=%d uptime=%ds\n", cfg.StatePath, m.CPUPercent, m.MemoryPercent, m.SwapPercent, m.StoragePercent, m.UploadBPS, m.DownloadBPS, m.Sockets, m.UptimeSeconds)
 	case "serve":
 		fs := flag.NewFlagSet("serve", flag.ExitOnError)
 		configPath := fs.String("config", "/etc/nexagate/panel.json", "panel configuration")
