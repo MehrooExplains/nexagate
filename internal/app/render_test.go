@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -209,13 +210,12 @@ func TestGeneratedConfigsWithReleaseBinaries(t *testing.T) {
 		}
 		// GitHub-hosted runners are unprivileged; move only the ephemeral test
 		// listeners above 1024. Production ports remain unchanged.
-		nginxConfig = []byte(strings.NewReplacer(
-			"listen 80;", "listen 18080;", "listen [::]:80;", "listen [::]:18080;",
-			"listen 443 ssl;", "listen 18443 ssl;", "listen [::]:443 ssl;", "listen [::]:18443 ssl;",
-			"listen 2053 ssl http2;", "listen 12053 ssl http2;", "listen [::]:2053 ssl http2;", "listen [::]:12053 ssl http2;",
-			"listen 8444 ssl;", "listen 18444 ssl;", "listen [::]:8444 ssl;", "listen [::]:18444 ssl;",
-			"listen 8443 ssl;", "listen 18443 ssl;", "listen [::]:8443 ssl;", "listen [::]:18443 ssl;",
-		).Replace(string(nginxConfig)))
+		listenRE := regexp.MustCompile(`listen (\[::\]:)?(80|443|2053|8443|8444)([^;]*;)`)
+		nginxConfig = listenRE.ReplaceAllFunc(nginxConfig, func(match []byte) []byte {
+			parts := listenRE.FindSubmatch(match)
+			port := map[string]string{"80": "18080", "443": "18443", "2053": "12053", "8443": "18443", "8444": "18444"}[string(parts[2])]
+			return []byte("listen " + string(parts[1]) + port + string(parts[3]))
+		})
 		if err := os.WriteFile(nginxConfigPath, nginxConfig, 0600); err != nil {
 			t.Fatal(err)
 		}
