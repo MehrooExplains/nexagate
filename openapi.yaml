@@ -21,6 +21,15 @@ paths:
       responses:
         '200': {description: Metrics JSON}
         '401': {description: Authentication required}
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Prometheus text exposition
+          content:
+            text/plain: {}
   /api/update-status:
     get:
       summary: Get panel update status

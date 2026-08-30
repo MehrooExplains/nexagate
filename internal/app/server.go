@@ -100,6 +100,7 @@ func Serve(configPath, version string) error {
 	mux.HandleFunc("/settings/panel", s.auth(s.panelSettings))
 	mux.HandleFunc("/settings/psiphon", s.auth(s.requireCSRF(s.updatePsiphon)))
 	mux.HandleFunc("/api/metrics", s.auth(s.metricsAPI))
+	mux.HandleFunc("/metrics", s.auth(s.prometheusMetrics))
 	mux.HandleFunc("/api/update-status", s.auth(s.updateStatusAPI))
 	mux.HandleFunc("/updates/run", s.auth(s.requireCSRF(s.triggerUpdate)))
 	handler := s.securityHeaders(mux)
@@ -133,6 +134,29 @@ func (s *server) metricsAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(s.metrics.collect())
+}
+
+func (s *server) prometheusMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	m := s.metrics.collect()
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	f := func(name string, value any) { _, _ = fmt.Fprintf(w, "nexagate_%s %v\n", name, value) }
+	f("cpu_percent", m.CPUPercent)
+	f("memory_used_bytes", m.MemoryUsed)
+	f("memory_total_bytes", m.MemoryTotal)
+	f("swap_used_bytes", m.SwapUsed)
+	f("storage_used_bytes", m.StorageUsed)
+	f("upload_bytes_per_second", m.UploadBPS)
+	f("download_bytes_per_second", m.DownloadBPS)
+	f("uploaded_bytes_total", m.UploadedTotal)
+	f("downloaded_bytes_total", m.DownloadedTotal)
+	f("open_sockets", m.Sockets)
+	f("tcp_sockets", m.TCPSockets)
+	f("udp_sockets", m.UDPSockets)
+	f("uptime_seconds", m.UptimeSeconds)
 }
 
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
