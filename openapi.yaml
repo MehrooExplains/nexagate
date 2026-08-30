@@ -30,6 +30,12 @@ paths:
           description: Prometheus text exposition
           content:
             text/plain: {}
+  /ws/metrics:
+    get:
+      summary: Stream live metrics over WebSocket
+      security: [{sessionCookie: []}]
+      responses:
+        '101': {description: WebSocket upgrade}
   /api/update-status:
     get:
       summary: Get panel update status

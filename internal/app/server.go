@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"html/template"
 	"io"
 	"log"
@@ -101,6 +102,7 @@ func Serve(configPath, version string) error {
 	mux.HandleFunc("/settings/psiphon", s.auth(s.requireCSRF(s.updatePsiphon)))
 	mux.HandleFunc("/api/metrics", s.auth(s.metricsAPI))
 	mux.HandleFunc("/api/users", s.auth(s.usersAPI))
+	mux.HandleFunc("/ws/metrics", s.auth(s.metricsWS))
 	mux.HandleFunc("/metrics", s.auth(s.prometheusMetrics))
 	mux.HandleFunc("/api/update-status", s.auth(s.updateStatusAPI))
 	mux.HandleFunc("/updates/run", s.auth(s.requireCSRF(s.triggerUpdate)))
@@ -188,6 +190,32 @@ func (s *server) usersAPI(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(user)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+var metricsUpgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return r.TLS != nil }}
+
+func (s *server) metricsWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	conn, err := metricsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for i := 0; i < 150; i++ {
+		if err := conn.WriteJSON(s.metrics.collect()); err != nil {
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-r.Context().Done():
+			return
+		}
 	}
 }
 
