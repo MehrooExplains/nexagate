@@ -296,4 +296,4 @@ shellcheck install.sh scripts/*.sh
 ## مجوز
 
 MIT. برنامه‌های ثالث مجوز و شرایط استفادهٔ خودشان را دارند. NexaGate وابسته یا نمایندهٔ Psiphon، Cloudflare، XTLS/Xray، Hysteria، Let's Encrypt یا Certbot نیست.
-[🇮🇷 فارسی](README.fa.md) · [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇸🇦 العربية](README.ar.md)
+[🦁☀️ فارسی](README.fa.md) · [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇸🇦 العربية](README.ar.md)

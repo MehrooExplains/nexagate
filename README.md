@@ -296,4 +296,4 @@ The test suite can additionally validate generated configs against downloaded re
 ## License
 
 MIT. Third-party programs retain their own licenses and terms. NexaGate is not affiliated with Psiphon, Cloudflare, XTLS/Xray, Hysteria, Let's Encrypt, or Certbot.
-[🇮🇷 فارسی](README.fa.md) · [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇸🇦 العربية](README.ar.md)
+[🦁☀️ فارسی](README.fa.md) · [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇸🇦 العربية](README.ar.md)
