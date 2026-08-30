@@ -202,6 +202,23 @@ func TestGeneratedConfigsWithReleaseBinaries(t *testing.T) {
 		t.Fatalf("Xray rejected generated config: %v: %s", err, output)
 	}
 	if nginx := os.Getenv("NEXAGATE_TEST_NGINX"); nginx != "" {
+		nginxConfigPath := filepath.Join(cfg.GeneratedDir, "nginx.conf")
+		nginxConfig, err := os.ReadFile(nginxConfigPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// GitHub-hosted runners are unprivileged; move only the ephemeral test
+		// listeners above 1024. Production ports remain unchanged.
+		nginxConfig = []byte(strings.NewReplacer(
+			"listen 80;", "listen 18080;", "listen [::]:80;", "listen [::]:18080;",
+			"listen 443 ssl;", "listen 18443 ssl;", "listen [::]:443 ssl;", "listen [::]:18443 ssl;",
+			"listen 2053 ssl http2;", "listen 12053 ssl http2;", "listen [::]:2053 ssl http2;", "listen [::]:12053 ssl http2;",
+			"listen 8444 ssl;", "listen 18444 ssl;", "listen [::]:8444 ssl;", "listen [::]:18444 ssl;",
+			"listen 8443 ssl;", "listen 18443 ssl;", "listen [::]:8443 ssl;", "listen [::]:18443 ssl;",
+		).Replace(string(nginxConfig)))
+		if err := os.WriteFile(nginxConfigPath, nginxConfig, 0600); err != nil {
+			t.Fatal(err)
+		}
 		wrapper := filepath.Join(filepath.Dir(cfg.GeneratedDir), "nginx-test.conf")
 		wrapperData := fmt.Sprintf("pid %s;\nerror_log stderr notice;\nevents {}\nhttp { access_log off; include %s; }\n",
 			filepath.Join(filepath.Dir(cfg.GeneratedDir), "nginx.pid"), filepath.Join(cfg.GeneratedDir, "nginx.conf"))
