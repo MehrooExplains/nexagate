@@ -473,10 +473,12 @@ func (s *server) addUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid expiry", 400)
 		return
 	}
-	if _, err := s.store.Add(strings.TrimSpace(r.FormValue("name")), days); err != nil {
+	name := strings.TrimSpace(r.FormValue("name"))
+	if _, err := s.store.Add(name, days); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	s.audit(r, "user_created", name)
 	if err := s.renderCurrentConfig(); err != nil {
 		http.Error(w, "user saved but configuration rendering failed: "+err.Error(), 500)
 		return
@@ -488,6 +490,7 @@ func (s *server) toggleUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 404)
 		return
 	}
+	s.audit(r, "user_toggled", r.FormValue("id"))
 	if err := s.renderCurrentConfig(); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -499,6 +502,7 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 404)
 		return
 	}
+	s.audit(r, "user_deleted", r.FormValue("id"))
 	if err := s.renderCurrentConfig(); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
