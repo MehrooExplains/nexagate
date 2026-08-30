@@ -45,6 +45,7 @@ func main() {
 		fs.StringVar(&opts.RealityShortID, "reality-short-id", "", "REALITY short ID")
 		fs.StringVar(&opts.HysteriaObfs, "hysteria-obfs", "", "Hysteria2 Salamander password")
 		fs.StringVar(&opts.XHTTPPath, "xhttp-path", "", "XHTTP path")
+		fs.StringVar(&opts.XHTTPTLSPath, "xhttp-tls-path", "", "XHTTP over TLS path")
 		fs.StringVar(&opts.WebSocketPath, "websocket-path", "", "WebSocket path")
 		_ = fs.Parse(os.Args[2:])
 		if err := app.Initialize(opts); err != nil {

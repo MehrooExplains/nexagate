@@ -45,6 +45,8 @@ jobs:
           check-latest: true
       - name: Download and verify pinned cores
         run: |
+          sudo apt-get update
+          sudo apt-get install -y nginx
           curl -fL --retry 3 -o xray.zip https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-linux-64.zip
           echo '23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae  xray.zip' | sha256sum -c -
           unzip -jo xray.zip xray -d .
@@ -58,4 +60,5 @@ jobs:
           NEXAGATE_TEST_XRAY: ${{ github.workspace }}/xray
           NEXAGATE_TEST_HYSTERIA: ${{ github.workspace }}/hysteria
           NEXAGATE_TEST_PSIPHON: ${{ github.workspace }}/psiphon
+          NEXAGATE_TEST_NGINX: /usr/sbin/nginx
         run: go test -run TestGeneratedConfigsWithReleaseBinaries -v ./internal/app

@@ -29,6 +29,7 @@ func Doctor(configPath string, output io.Writer) error {
 		{"Nginx config", fileReadable(filepath.Join(cfg.GeneratedDir, "nginx.conf")), filepath.Join(cfg.GeneratedDir, "nginx.conf")},
 		{"WARP interface", interfaceExists(cfg.WARP.Interface), cfg.WARP.Interface},
 		{"Psiphon SOCKS", tcpOpen(fmt.Sprintf("127.0.0.1:%d", cfg.Psiphon.SOCKSPort)), fmt.Sprintf("127.0.0.1:%d", cfg.Psiphon.SOCKSPort)},
+		{"XHTTP TLS local ingress", tcpOpen(fmt.Sprintf("127.0.0.1:%d", cfg.Ports.XHTTPTLSLocal)), fmt.Sprintf("127.0.0.1:%d", cfg.Ports.XHTTPTLSLocal)},
 		{"fail-closed firewall", commandOK("nft", "list", "table", "inet", "nexagate"), "inet/nexagate"},
 	}
 	for _, service := range []string{"nexagate-panel", "nexagate-xray", "nexagate-hysteria", "nexagate-psiphon", "wg-quick@warp0", "nginx"} {

@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,11 +77,13 @@ func testConfig(t *testing.T) Config {
 		Listen: "127.0.0.1:9080", PublicHost: "vpn.example.com", CertName: "vpn.example.com",
 		CertFile: filepath.Join(dir, "cert.pem"), KeyFile: filepath.Join(dir, "key.pem"), ACMEWebroot: filepath.Join(dir, "webroot"),
 		StatePath: state, GeneratedDir: filepath.Join(dir, "generated"), AdminHash: "test", SessionKey: "test",
-		Ports: Ports{Hysteria: 443, XHTTPReality: 443, RawReality: 8444, WebSocketTLS: 2053, WebSocketLocal: 10001, PanelHTTPS: 8443},
+		Ports: Ports{Hysteria: 443, XHTTPReality: 443, XHTTPTLS: 2053, XHTTPTLSLocal: 10002,
+			RawReality: 8444, WebSocketTLS: 2053, WebSocketLocal: 10001, PanelHTTPS: 8443},
 		Reality: RealityConfig{PrivateKey: "MGS-scauOEJer1nkmHCQ5mgJnT-PeWR3QYaivMuPPGM", PublicKey: "buV-CvDpcbEd9hxJdWHNQLNDW0NQBzjlWeHDz232vUc",
 			Target: "www.microsoft.com", ShortID: "0123456789abcdef", XHTTPPath: "/xhttp-test"},
 		Hysteria: HyConfig{ObfsPassword: "obfs-test", StatsSecret: "stats-test"},
-		Psiphon:  PsiphonConfig{SOCKSPort: 1080, Mode: "auto"}, WARP: WARPConfig{Interface: "warp0"}, WebSocketPath: "/ws-test",
+		Psiphon:  PsiphonConfig{SOCKSPort: 1080, Mode: "auto"}, WARP: WARPConfig{Interface: "warp0"},
+		XHTTPTLSPath: "/xhttp-tls-test", WebSocketPath: "/ws-test",
 	}
 }
 
@@ -102,7 +105,8 @@ func TestRenderIsFailClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{`"outboundTag": "psiphon"`, `"outboundTag": "warp"`, `"outboundTag": "blocked"`, `"interface": "warp0"`} {
+	for _, required := range []string{`"outboundTag": "psiphon"`, `"outboundTag": "warp"`, `"outboundTag": "blocked"`, `"interface": "warp0"`,
+		`"tag": "vless-xhttp-tls"`, `"port": 10002`, `"path": "/xhttp-tls-test"`} {
 		if !strings.Contains(string(xray), required) {
 			t.Errorf("Xray config is missing %s", required)
 		}
@@ -122,6 +126,56 @@ func TestRenderIsFailClosed(t *testing.T) {
 	}
 	if !strings.Contains(string(psi), `"EgressRegion": ""`) {
 		t.Error("automatic Psiphon mode did not render an empty EgressRegion")
+	}
+	nginx, err := os.ReadFile(filepath.Join(cfg.GeneratedDir, "nginx.conf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"listen 2053 ssl http2;", "location ^~ /xhttp-tls-test/", "grpc_pass grpc://127.0.0.1:10002;", "location = /ws-test"} {
+		if !strings.Contains(string(nginx), required) {
+			t.Errorf("Nginx config is missing %q", required)
+		}
+	}
+}
+
+func TestXHTTPTLSProfileUsesRealTLSAndHTTP2(t *testing.T) {
+	cfg := testConfig(t)
+	user := User{Name: "alice", UUID: "6ba7b810-9dad-41d1-80b4-00c04fd430c8"}
+	profile := userLinks(cfg, user).XHTTPTLS
+	for _, required := range []string{"vless://", "vpn.example.com:2053", "security=tls", "type=xhttp", "alpn=h2", "mode=auto", "path=%2Fxhttp-tls-test"} {
+		if !strings.Contains(profile, required) {
+			t.Errorf("XHTTP TLS profile is missing %q: %s", required, profile)
+		}
+	}
+}
+
+func TestLegacyConfigGetsSafeXHTTPTLSDefaults(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Ports.XHTTPTLS = 0
+	cfg.Ports.XHTTPTLSLocal = 0
+	cfg.XHTTPTLSPath = ""
+	changed, err := normalizeConfig(&cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("legacy configuration was not marked as migrated")
+	}
+	if cfg.Ports.XHTTPTLS != cfg.Ports.WebSocketTLS || cfg.Ports.XHTTPTLSLocal != 10002 || cfg.XHTTPTLSPath != "/xhttp-test-tls" {
+		t.Fatalf("unexpected migrated XHTTP TLS settings: ports=%+v path=%q", cfg.Ports, cfg.XHTTPTLSPath)
+	}
+}
+
+func TestXHTTPTLSRejectsListenerCollision(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Ports.XHTTPTLSLocal = cfg.Ports.WebSocketLocal
+	if _, err := normalizeConfig(&cfg); err == nil {
+		t.Fatal("local listener collision was accepted")
+	}
+	cfg = testConfig(t)
+	cfg.Ports.XHTTPTLS = cfg.Ports.PanelHTTPS
+	if _, err := normalizeConfig(&cfg); err == nil {
+		t.Fatal("public listener collision was accepted")
 	}
 }
 
@@ -146,6 +200,17 @@ func TestGeneratedConfigsWithReleaseBinaries(t *testing.T) {
 	}
 	if output, err := exec.Command(xray, "run", "-test", "-config", filepath.Join(cfg.GeneratedDir, "xray.json")).CombinedOutput(); err != nil {
 		t.Fatalf("Xray rejected generated config: %v: %s", err, output)
+	}
+	if nginx := os.Getenv("NEXAGATE_TEST_NGINX"); nginx != "" {
+		wrapper := filepath.Join(filepath.Dir(cfg.GeneratedDir), "nginx-test.conf")
+		wrapperData := fmt.Sprintf("pid %s;\nerror_log stderr notice;\nevents {}\nhttp { access_log off; include %s; }\n",
+			filepath.Join(filepath.Dir(cfg.GeneratedDir), "nginx.pid"), filepath.Join(cfg.GeneratedDir, "nginx.conf"))
+		if err := os.WriteFile(wrapper, []byte(wrapperData), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command(nginx, "-t", "-c", wrapper, "-p", filepath.Dir(cfg.GeneratedDir)).CombinedOutput(); err != nil {
+			t.Fatalf("Nginx rejected generated config: %v: %s", err, output)
+		}
 	}
 	hyPath := filepath.Join(cfg.GeneratedDir, "hysteria.yaml")
 	hyData, err := os.ReadFile(hyPath)

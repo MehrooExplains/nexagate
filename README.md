@@ -10,13 +10,13 @@
 
 [![Checks](https://github.com/MehrooExplains/nexagate/actions/workflows/checks.yml/badge.svg)](https://github.com/MehrooExplains/nexagate/actions/workflows/checks.yml)
 
-NexaGate is an early Linux server project that combines four censorship-resistant inbounds with two deliberately separated egress paths:
+NexaGate is an early Linux server project that combines five censorship-resistant inbounds with two deliberately separated egress paths:
 
 - inner **TCP** traffic exits through the **Psiphon** network;
 - inner **UDP** traffic and tunnel DNS exit through **Cloudflare WARP**;
 - a fail-closed firewall prevents Xray, Hysteria, and the DNS relay from silently falling back to the server's normal Internet route.
 
-> Project status: initial `0.1.0` release. Test it on a fresh, recoverable server before using it in production. No protocol or server can guarantee access under every filtering policy.
+> Project status: `0.2.0`. Test it on a fresh, recoverable server before using it in production. No protocol or server can guarantee access under every filtering policy.
 
 ## Architecture
 
@@ -25,7 +25,9 @@ Clients
   ├─ UDP/443  ─ Hysteria2
   ├─ TCP/443  ─ VLESS + XHTTP + REALITY
   ├─ TCP/8444 ─ VLESS + RAW + REALITY + Vision
-  └─ TCP/2053 ─ Nginx TLS ─ VLESS + WebSocket
+  └─ TCP/2053 ─ Nginx TLS/HTTP2
+                    ├─ VLESS + XHTTP + TLS
+                    └─ VLESS + WebSocket + TLS
                          │
                     TCP / UDP split
                      /           \
@@ -42,7 +44,8 @@ Management: TCP/8443 → Nginx HTTPS → panel on 127.0.0.1:9080
 | UDP `443` | Hysteria2 + Salamander | Fast UDP-based primary profile |
 | TCP `443` | VLESS + XHTTP + REALITY | Resistant HTTPS-like profile |
 | TCP `8444` | VLESS + RAW + REALITY + Vision | Compatible REALITY profile |
-| TCP `2053` | VLESS + WebSocket + TLS | TLS/WebSocket fallback profile |
+| TCP `2053` | VLESS + XHTTP + TLS over HTTP/2 | Real-HTTPS fallback when REALITY or UDP is disrupted |
+| TCP `2053` | VLESS + WebSocket + TLS | Legacy emergency fallback on a separate secret path |
 | TCP `8443` | HTTPS | Administrator panel |
 | TCP `80` | HTTP-01 only | Let's Encrypt issuance and renewal |
 
@@ -58,7 +61,8 @@ TCP and UDP may use port `443` at the same time because they are different trans
 - Server IP addresses blurred by default and revealed only with the eye control
 - One-click panel updates with release checksum verification, post-update health check, and automatic rollback
 - Search, add, disable, expire, and delete users from a focused account-management screen
-- Four connection links and QR codes per user
+- Five connection links and QR codes per user, including the real-TLS XHTTP fallback
+- Automatic, backward-compatible configuration migration when a binary-only one-click update introduces new generated settings
 - Automatic Psiphon server selection, or an optional fixed two-letter region such as `DE`
 - Automatic WARP endpoint selection using latency and throughput probes
 - A separate WARP probe interface/network namespace, so benchmarking does not interrupt active users
@@ -72,7 +76,7 @@ TCP and UDP may use port `443` at the same time because they are different trans
 - Automatic prerequisite detection: only missing packages are installed before setup continues
 - SHA-256 verification for all downloaded pinned binaries and scripts
 
-### Pinned components in 0.1.0
+### Pinned components in 0.2.0
 
 | Component | Pinned release |
 |---|---|
@@ -158,6 +162,19 @@ CertDuo requests a normal Let's Encrypt domain certificate with HTTP-01 webroot 
 
 CertDuo detects the server's current public IPv4 and requests Let's Encrypt's short-lived IP certificate profile. These certificates have a much shorter lifetime than ordinary domain certificates, so automatic renewal must remain enabled. The installer adds a deployment hook that reloads Nginx and restarts Hysteria after renewal.
 
+## Real-TLS XHTTP fallback
+
+Every user receives a fifth profile: **VLESS + XHTTP + TLS**. It uses the real CertDuo certificate and HTTP/2 on public TCP `2053`. Nginx terminates TLS and forwards only the randomly generated XHTTP path over local h2c to Xray on `127.0.0.1:10002`; the existing WebSocket fallback keeps a different secret path on the same public port.
+
+Recommended connection order:
+
+1. XHTTP + REALITY on TCP `443`;
+2. XHTTP + real TLS on TCP `2053` when REALITY is impaired;
+3. Hysteria2 on UDP `443` when the current network has reliable UDP;
+4. RAW REALITY or WebSocket TLS for client compatibility and emergency use.
+
+The XHTTP TLS link pins ALPN to HTTP/2 and uses XHTTP `auto` mode. Inner TCP still exits through Psiphon and inner UDP/DNS still exits through WARP. A server-side protocol cannot detect the user's Iranian ISP before the connection arrives, so profile selection remains explicit in the client.
+
 ## Psiphon behavior
 
 Psiphon provides a local SOCKS5 proxy on `127.0.0.1:1080`. Xray and Hysteria send only TCP sessions to it.
@@ -217,7 +234,7 @@ Select **Check & update** in Overview to request an update. The web process only
 4. keeps the previous panel executable, installs the new one atomically, and restarts the panel;
 5. checks `/healthz` and automatically restores the previous executable if startup or health verification fails.
 
-The button updates the NexaGate panel executable. A future release that explicitly changes operating-system packages or systemd/network policy may still require running its documented migration procedure. SHA-256 protects release integrity in transit and detects mismatches; trust still depends on the GitHub repository and release account. Release builds are created by `.github/workflows/release.yml`; development builds intentionally disable the update button.
+The button updates the NexaGate executable. On first startup, a new binary safely fills missing configuration defaults, writes them atomically, regenerates service configuration, and lets the existing validation path apply it. A future release that explicitly changes operating-system packages or systemd/network policy may still require its documented migration procedure. SHA-256 protects release integrity in transit and detects mismatches; trust still depends on the GitHub repository and release account. Release builds are created by `.github/workflows/release.yml`; development builds intentionally disable the update button.
 
 Useful checks:
 
@@ -241,7 +258,7 @@ Important paths:
 | `/var/lib/nexagate/warp/status.json` | Latest WARP benchmark result |
 | `/var/lib/nexagate/update-status.json` | Last panel update state shown in Overview |
 
-Back up the first four sensitive paths securely. Never publish them or paste them into an issue.
+Back up the first five sensitive paths securely. Never publish them or paste them into an issue.
 
 ## Troubleshooting
 
@@ -279,3 +296,4 @@ The test suite can additionally validate generated configs against downloaded re
 ## License
 
 MIT. Third-party programs retain their own licenses and terms. NexaGate is not affiliated with Psiphon, Cloudflare, XTLS/Xray, Hysteria, Let's Encrypt, or Certbot.
+[🇮🇷 فارسی](README.fa.md) · [🇬🇧 English](README.md) · [🇷🇺 Русский](README.ru.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇸🇦 العربية](README.ar.md)

@@ -18,12 +18,15 @@ type Config struct {
 	Hysteria      HyConfig      `json:"hysteria"`
 	Psiphon       PsiphonConfig `json:"psiphon"`
 	WARP          WARPConfig    `json:"warp"`
+	XHTTPTLSPath  string        `json:"xhttp_tls_path"`
 	WebSocketPath string        `json:"websocket_path"`
 }
 
 type Ports struct {
 	Hysteria       int `json:"hysteria"`
 	XHTTPReality   int `json:"xhttp_reality"`
+	XHTTPTLS       int `json:"xhttp_tls"`
+	XHTTPTLSLocal  int `json:"xhttp_tls_local"`
 	RawReality     int `json:"raw_reality"`
 	WebSocketTLS   int `json:"websocket_tls"`
 	WebSocketLocal int `json:"websocket_local"`

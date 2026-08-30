@@ -57,9 +57,19 @@ type serviceView struct {
 }
 
 func Serve(configPath, version string) error {
-	cfg, err := loadConfig(configPath)
+	cfg, migrated, err := loadConfigAndMigrate(configPath)
 	if err != nil {
 		return err
+	}
+	// A binary-only one-click upgrade can add new generated settings safely: the
+	// existing systemd path unit validates and applies them after this migration.
+	if migrated {
+		if err := Render(cfg); err != nil {
+			return fmt.Errorf("render migrated configuration: %w", err)
+		}
+		if err := saveJSONAtomic(configPath, cfg, 0600); err != nil {
+			return fmt.Errorf("save migrated configuration: %w", err)
+		}
 	}
 	key, err := base64.RawStdEncoding.DecodeString(cfg.SessionKey)
 	if err != nil || len(key) != 32 {
@@ -500,6 +510,8 @@ func (s *server) qr(w http.ResponseWriter, r *http.Request) {
 		value = links.Hysteria
 	case "xhttp":
 		value = links.XHTTPReality
+	case "xhttp-tls":
+		value = links.XHTTPTLS
 	case "reality":
 		value = links.RawReality
 	case "ws":

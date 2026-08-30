@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-NexaGate is currently an early `0.1.x` project. Only the latest commit on the
+NexaGate is currently an early `0.2.x` project. Only the latest commit on the
 `main` branch is supported while the design is being stabilized.
 
 ## Reporting a vulnerability

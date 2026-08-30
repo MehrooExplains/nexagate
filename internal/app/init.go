@@ -27,6 +27,7 @@ type InitOptions struct {
 	RealityShortID        string
 	HysteriaObfs          string
 	XHTTPPath             string
+	XHTTPTLSPath          string
 	WebSocketPath         string
 }
 
@@ -84,6 +85,13 @@ func Initialize(opts InitOptions) error {
 		}
 		opts.XHTTPPath = "/" + path
 	}
+	if opts.XHTTPTLSPath == "" {
+		path, e := randomHex(12)
+		if e != nil {
+			return e
+		}
+		opts.XHTTPTLSPath = "/xhttp-tls-" + path
+	}
 	if opts.WebSocketPath == "" {
 		path, e := randomHex(8)
 		if e != nil {
@@ -91,8 +99,11 @@ func Initialize(opts InitOptions) error {
 		}
 		opts.WebSocketPath = "/ws-" + path
 	}
-	if !strings.HasPrefix(opts.XHTTPPath, "/") || !strings.HasPrefix(opts.WebSocketPath, "/") {
-		return errors.New("XHTTP and WebSocket paths must begin with /")
+	if !validProxyPath(opts.XHTTPPath) || !validProxyPath(opts.XHTTPTLSPath) || !validProxyPath(opts.WebSocketPath) {
+		return errors.New("XHTTP and WebSocket paths must be safe absolute URL paths")
+	}
+	if opts.XHTTPPath == opts.XHTTPTLSPath || opts.XHTTPTLSPath == opts.WebSocketPath || opts.XHTTPPath == opts.WebSocketPath {
+		return errors.New("XHTTP and WebSocket paths must be unique")
 	}
 
 	certDir := filepath.Join("/etc/letsencrypt/live", opts.CertName)
@@ -102,12 +113,13 @@ func Initialize(opts InitOptions) error {
 		ACMEWebroot: opts.ACMEWebroot,
 		StatePath:   opts.StatePath, GeneratedDir: opts.GeneratedDir,
 		AdminHash: adminHash, SessionKey: base64.RawStdEncoding.EncodeToString(sessionKey),
-		Ports: Ports{Hysteria: 443, XHTTPReality: 443, RawReality: 8444, WebSocketTLS: 2053, WebSocketLocal: 10001, PanelHTTPS: 8443},
+		Ports: Ports{Hysteria: 443, XHTTPReality: 443, XHTTPTLS: 2053, XHTTPTLSLocal: 10002,
+			RawReality: 8444, WebSocketTLS: 2053, WebSocketLocal: 10001, PanelHTTPS: 8443},
 		Reality: RealityConfig{PrivateKey: opts.RealityPrivateKey, PublicKey: opts.RealityPublicKey,
 			Target: opts.RealityTarget, ShortID: opts.RealityShortID, XHTTPPath: opts.XHTTPPath},
 		Hysteria: HyConfig{ObfsPassword: opts.HysteriaObfs},
 		Psiphon:  PsiphonConfig{SOCKSPort: 1080, Mode: "auto"},
-		WARP:     WARPConfig{Interface: "warp0"}, WebSocketPath: opts.WebSocketPath,
+		WARP:     WARPConfig{Interface: "warp0"}, XHTTPTLSPath: opts.XHTTPTLSPath, WebSocketPath: opts.WebSocketPath,
 	}
 	cfg.Hysteria.StatsSecret, err = randomToken(24)
 	if err != nil {
@@ -150,7 +162,20 @@ func validDomain(value string) bool {
 	return strings.Contains(value, ".")
 }
 
-func loadConfig(path string) (Config, error) {
+func validProxyPath(value string) bool {
+	if len(value) < 2 || len(value) > 160 || value[0] != '/' || strings.Contains(value, "//") {
+		return false
+	}
+	for _, char := range value[1:] {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || strings.ContainsRune("-._~/", char) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func decodeConfig(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, err
@@ -163,4 +188,82 @@ func loadConfig(path string) (Config, error) {
 		return Config{}, errors.New("configuration is incomplete")
 	}
 	return cfg, nil
+}
+
+func normalizeConfig(cfg *Config) (bool, error) {
+	changed := false
+	if cfg.Ports.XHTTPTLS == 0 {
+		cfg.Ports.XHTTPTLS = cfg.Ports.WebSocketTLS
+		if cfg.Ports.XHTTPTLS == 0 {
+			cfg.Ports.XHTTPTLS = 2053
+		}
+		changed = true
+	}
+	if cfg.Ports.XHTTPTLSLocal == 0 {
+		cfg.Ports.XHTTPTLSLocal = 10002
+		changed = true
+	}
+	if cfg.XHTTPTLSPath == "" {
+		base := strings.TrimSuffix(cfg.Reality.XHTTPPath, "/")
+		if base == "" {
+			base = "/xhttp"
+		}
+		cfg.XHTTPTLSPath = base + "-tls"
+		if cfg.XHTTPTLSPath == cfg.WebSocketPath {
+			cfg.XHTTPTLSPath = base + "-secure"
+		}
+		changed = true
+	}
+	for name, value := range map[string]string{
+		"REALITY XHTTP path": cfg.Reality.XHTTPPath,
+		"TLS XHTTP path":     cfg.XHTTPTLSPath,
+		"WebSocket path":     cfg.WebSocketPath,
+	} {
+		if !validProxyPath(value) {
+			return false, fmt.Errorf("%s is invalid", name)
+		}
+	}
+	if cfg.Reality.XHTTPPath == cfg.XHTTPTLSPath || cfg.XHTTPTLSPath == cfg.WebSocketPath || cfg.Reality.XHTTPPath == cfg.WebSocketPath {
+		return false, errors.New("XHTTP and WebSocket paths must be unique")
+	}
+	for name, port := range map[string]int{
+		"Hysteria": cfg.Ports.Hysteria, "XHTTP REALITY": cfg.Ports.XHTTPReality,
+		"XHTTP TLS": cfg.Ports.XHTTPTLS, "XHTTP TLS local": cfg.Ports.XHTTPTLSLocal,
+		"RAW REALITY": cfg.Ports.RawReality, "WebSocket TLS": cfg.Ports.WebSocketTLS,
+		"WebSocket local": cfg.Ports.WebSocketLocal, "panel HTTPS": cfg.Ports.PanelHTTPS,
+	} {
+		if port < 1 || port > 65535 {
+			return false, fmt.Errorf("%s port is outside 1-65535", name)
+		}
+	}
+	if cfg.Ports.XHTTPTLSLocal == cfg.Ports.WebSocketLocal || cfg.Ports.XHTTPTLSLocal == cfg.Psiphon.SOCKSPort {
+		return false, errors.New("XHTTP TLS local port conflicts with another local service")
+	}
+	if cfg.Ports.XHTTPTLS == cfg.Ports.PanelHTTPS || cfg.Ports.XHTTPTLS == cfg.Ports.XHTTPReality || cfg.Ports.XHTTPTLS == cfg.Ports.RawReality {
+		return false, errors.New("XHTTP TLS public port conflicts with another TCP listener")
+	}
+	return changed, nil
+}
+
+func loadConfig(path string) (Config, error) {
+	cfg, err := decodeConfig(path)
+	if err != nil {
+		return Config{}, err
+	}
+	if _, err := normalizeConfig(&cfg); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func loadConfigAndMigrate(path string) (Config, bool, error) {
+	cfg, err := decodeConfig(path)
+	if err != nil {
+		return Config{}, false, err
+	}
+	changed, err := normalizeConfig(&cfg)
+	if err != nil {
+		return Config{}, false, err
+	}
+	return cfg, changed, nil
 }

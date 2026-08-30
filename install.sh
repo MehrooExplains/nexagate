@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 077
 
-VERSION=0.1.0
+VERSION=0.2.0
 XRAY_VERSION=26.3.27
 XRAY_SHA256=23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae
 HYSTERIA_VERSION=2.12.2
@@ -200,6 +200,8 @@ fi
 for command_name in curl git unzip jq openssl nginx wg nft qrencode setfacl ip ss flock snap tar timeout sha256sum getent; do
   command -v "$command_name" >/dev/null 2>&1 || die "Required command is still unavailable after package installation: $command_name"
 done
+nginx -V 2>&1 | grep -q -- '--with-http_v2_module' || \
+  die "The installed Nginx build lacks HTTP/2 support required by the XHTTP TLS fallback."
 
 if ip link show nwgcheck >/dev/null 2>&1; then
   die "Temporary preflight interface name 'nwgcheck' is already in use."
