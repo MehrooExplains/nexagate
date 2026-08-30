@@ -12,7 +12,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -102,6 +104,7 @@ func Serve(configPath, version string) error {
 	mux.HandleFunc("/settings/psiphon", s.auth(s.requireCSRF(s.updatePsiphon)))
 	mux.HandleFunc("/api/metrics", s.auth(s.metricsAPI))
 	mux.HandleFunc("/api/users", s.auth(s.usersAPI))
+	mux.HandleFunc("/api/audit", s.auth(s.auditAPI))
 	mux.HandleFunc("/ws/metrics", s.auth(s.metricsWS))
 	mux.HandleFunc("/metrics", s.auth(s.prometheusMetrics))
 	mux.HandleFunc("/api/update-status", s.auth(s.updateStatusAPI))
@@ -137,6 +140,29 @@ func (s *server) metricsAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(s.metrics.collect())
+}
+
+func (s *server) auditAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(s.configPath), "audit.log"))
+	if errors.Is(err, os.ErrNotExist) {
+		data = []byte{}
+	} else if err != nil {
+		http.Error(w, "internal error", 500)
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		lines = []string{}
+	}
+	if len(lines) > 200 {
+		lines = lines[len(lines)-200:]
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(lines)
 }
 
 func (s *server) prometheusMetrics(w http.ResponseWriter, r *http.Request) {

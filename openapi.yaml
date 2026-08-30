@@ -69,6 +69,12 @@ paths:
                 days: {type: integer, minimum: 0}
       responses:
         '201': {description: User created}
+  /api/audit:
+    get:
+      summary: Read recent audit events
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {description: JSON array of recent audit lines}
 components:
   securitySchemes:
     sessionCookie:
