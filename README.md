@@ -6,6 +6,12 @@
   <strong><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Flag_of_the_United_Kingdom.svg?width=48" width="28" alt="United Kingdom flag"> English</strong>
   &nbsp;|&nbsp;
   <a href="README.fa.md"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/State_flag_of_the_Imperial_State_of_Iran_(with_standardized_lion_and_sun).svg?width=48" width="28" alt="Iranian Lion and Sun flag"> فارسی</a>
+  &nbsp;|&nbsp;
+  <a href="README.ru.md"><img src="https://flagcdn.com/w40/ru.png" width="28" alt="Russian flag"> Русский</a>
+  &nbsp;|&nbsp;
+  <a href="README.zh-CN.md"><img src="https://flagcdn.com/w40/cn.png" width="28" alt="Chinese flag"> 简体中文</a>
+  &nbsp;|&nbsp;
+  <a href="README.ar.md"><img src="https://flagcdn.com/w40/sa.png" width="28" alt="Arabian flag"> العربية</a>
 </p>
 
 [![Checks](https://github.com/MehrooExplains/nexagate/actions/workflows/checks.yml/badge.svg)](https://github.com/MehrooExplains/nexagate/actions/workflows/checks.yml)
