@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: NexaGate API
+  version: 0.2.0
+  description: Authenticated management and monitoring endpoints for NexaGate.
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: localhost
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200': {description: Healthy}
+  /api/metrics:
+    get:
+      summary: Get live system metrics
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {description: Metrics JSON}
+        '401': {description: Authentication required}
+  /api/update-status:
+    get:
+      summary: Get panel update status
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {description: Update status}
+  /users:
+    get:
+      summary: List users
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {description: HTML user management page}
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: nexagate_session
