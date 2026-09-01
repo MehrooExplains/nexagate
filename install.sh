@@ -11,8 +11,8 @@ WGCF_VERSION=2.2.32
 WGCF_SHA256=2ff97f2201972ce582a424455d50a3719a380eef0cd1f3144f7779348e122a2c
 PSIPHON_COMMIT=50543d5e771ed7f2d6ccfedde9009fc2d3a799ff
 PSIPHON_SHA256=47f8956f3f3cf9813d4cbee4665adc99b1f8ffa788c13dc5e03e824cc29217b0
-CERTDUO_COMMIT=550b5b0b55405b1f89225893189503596296b9c8
-CERTDUO_SHA256=b9c9e4545bad21bcdd55da0f2c57bc7504239cf5826b8dea50eac6ae171dccb8
+CERTDUO_COMMIT=00ead2a80608c2907e4958650d5babab145ab169
+CERTDUO_SHA256=4b5a8510acaba3c6b19d3bee5f801a3bf0311d2bc81eca14e8be4af5888bdf49
 GO_VERSION=1.27.0
 GO_SHA256=675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685
 SOURCE_ARCHIVE_URL=https://codeload.github.com/MehrooExplains/nexagate/tar.gz/refs/heads/main
@@ -272,6 +272,20 @@ REALITY_TARGET=${REALITY_TARGET:-www.microsoft.com}
 
 WEBROOT=/var/www/html
 mkdir -p "$WEBROOT/.well-known/acme-challenge"
+# CertDuo intentionally uses umask 077 for sensitive certificate material.
+# Its short-lived HTTP-01 probe is therefore created as 0600 too. Grant only
+# the Nginx worker an inherited read/traverse ACL on the public challenge
+# directory so the probe and future renewals remain readable without making
+# the rest of the installer workspace public.
+NGINX_WORKER_USER=$(nginx -T 2>/dev/null | awk '$1 == "user" {gsub(/;/, "", $2); print $2; exit}')
+if [[ -z $NGINX_WORKER_USER ]] || ! id "$NGINX_WORKER_USER" >/dev/null 2>&1; then
+  for candidate in www-data nginx; do
+    if id "$candidate" >/dev/null 2>&1; then NGINX_WORKER_USER=$candidate; break; fi
+  done
+fi
+[[ -n $NGINX_WORKER_USER ]] || die "Could not determine the Nginx worker user."
+setfacl -m "u:$NGINX_WORKER_USER:rx" "$WEBROOT" "$WEBROOT/.well-known"
+setfacl -m "u:$NGINX_WORKER_USER:rwx,d:u:$NGINX_WORKER_USER:rx" "$WEBROOT/.well-known/acme-challenge"
 BOOTSTRAP_CONFIG=/etc/nginx/conf.d/00-nexagate-bootstrap.conf
 [[ ! -e $BOOTSTRAP_CONFIG && ! -e /etc/nginx/conf.d/nexagate.conf ]] || \
   die "An existing Nginx file uses a NexaGate-reserved configuration name."
@@ -290,6 +304,14 @@ REMOVE_BOOTSTRAP=1
 nginx -t || die "The temporary Nginx ACME configuration is invalid."
 systemctl enable --now nginx
 systemctl reload nginx
+
+PREFLIGHT_TOKEN="nexagate-preflight-$RANDOM-$$"
+printf '%s' "$PREFLIGHT_TOKEN" >"$WEBROOT/.well-known/acme-challenge/$PREFLIGHT_TOKEN"
+PREFLIGHT_RESULT=$(curl -fsS --max-time 5 -H "Host: $PUBLIC_HOST" \
+  "http://127.0.0.1/.well-known/acme-challenge/$PREFLIGHT_TOKEN" || true)
+rm -f -- "$WEBROOT/.well-known/acme-challenge/$PREFLIGHT_TOKEN"
+[[ $PREFLIGHT_RESULT == "$PREFLIGHT_TOKEN" ]] || \
+  die "Nginx cannot read the HTTP-01 webroot through its worker account ($NGINX_WORKER_USER)."
 
 say "Downloading the pinned and checksum-verified CertDuo release..."
 download_verified \
