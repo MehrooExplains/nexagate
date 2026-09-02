@@ -84,7 +84,7 @@ TCP and UDP may use port `443` at the same time because they are different trans
 - Automatic prerequisite detection: only missing packages are installed before setup continues
 - SHA-256 verification for all downloaded pinned binaries and scripts
 
-### Pinned components in 0.2.0
+### Pinned components in 0.3.0
 
 | Component | Pinned release |
 |---|---|
