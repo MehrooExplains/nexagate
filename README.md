@@ -67,6 +67,8 @@ TCP and UDP may use port `443` at the same time because they are different trans
 - Server IP addresses blurred by default and revealed only with the eye control
 - One-click panel updates with release checksum verification, post-update health check, and automatic rollback
 - Search, add, disable, expire, and delete users from a focused account-management screen
+- Built-in REALITY target scanner with TLS 1.3, ALPN, certificate, X25519, latency, and guarded public CIDR probing
+- Strong random initial administrator password with an in-panel password-change form
 - Five connection links and QR codes per user, including the real-TLS XHTTP fallback
 - Automatic, backward-compatible configuration migration when a binary-only one-click update introduces new generated settings
 - Automatic Psiphon server selection, or an optional fixed two-letter region such as `DE`
@@ -90,7 +92,7 @@ TCP and UDP may use port `443` at the same time because they are different trans
 | Hysteria2 | `2.12.2` |
 | wgcf | `2.2.32` |
 | Psiphon tunnel core | repository commit `50543d5e771e` |
-| CertDuo | repository commit `550b5b0b5540` |
+| CertDuo | repository commit `00ead2a80608` |
 | Temporary Go toolchain, when required | `1.27.0` |
 
 The complete commit IDs and SHA-256 values are kept in `install.sh`; a checksum mismatch stops installation.
@@ -128,13 +130,17 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MehrooExplains/nexagate/main
 
 The standalone script automatically elevates with `sudo` when necessary, downloads the complete project from this repository, checks prerequisites, installs only missing packages, and then continues with the interactive setup. To audit it first, open [install.sh](install.sh); cloning the repository and running `sudo ./install.sh` remains supported.
 
-The installer asks for:
+The simplified installer asks only for:
 
 1. certificate type: domain or this server's public IP;
 2. Let's Encrypt account email;
-3. domain name when option 1 is selected;
-4. a panel administrator password;
-5. an optional REALITY camouflage target.
+3. domain name when option 1 is selected.
+
+It generates the initial administrator password automatically, shows it once at completion, and stores a root-only recovery copy in `/root/nexagate-initial-credentials.txt`. Change it from Panel Settings and then delete that file. A conservative initial REALITY target is used by default and can later be replaced with the integrated scanner.
+
+### REALITY target scanner
+
+Open **Panel Settings → REALITY Target Scanner**. An empty scan probes the built-in domain candidates; a single domain is checked directly; and a public IPv4 CIDR of `/28` or smaller can be inspected (at most 16 public addresses). The scanner measures the TLS version, ALPN, presented certificate, X25519 preference, and latency from the server. It never probes private or special-use networks. CIDR/IP results are informational: only a verified domain gets a **Use** button, because REALITY needs a matching SNI hostname as well as an address. A feasible result is a compatibility signal, not a promise of availability under every network or filtering condition.
 
 It then performs this sequence:
 

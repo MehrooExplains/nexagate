@@ -102,6 +102,9 @@ func Serve(configPath, version string) error {
 	mux.HandleFunc("/settings/routing", s.auth(s.routing))
 	mux.HandleFunc("/settings/panel", s.auth(s.panelSettings))
 	mux.HandleFunc("/settings/psiphon", s.auth(s.requireCSRF(s.updatePsiphon)))
+	mux.HandleFunc("/settings/password", s.auth(s.requireCSRF(s.changePassword)))
+	mux.HandleFunc("/settings/reality-target", s.auth(s.requireCSRF(s.updateRealityTarget)))
+	mux.HandleFunc("/api/reality-scan", s.auth(s.requireCSRF(s.realityScanAPI)))
 	mux.HandleFunc("/api/metrics", s.auth(s.metricsAPI))
 	mux.HandleFunc("/api/users", s.auth(s.usersAPI))
 	mux.HandleFunc("/api/audit", s.auth(s.auditAPI))
@@ -490,7 +493,74 @@ func (s *server) panelSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := languageFromRequest(r)
-	s.render(w, r, "panel-settings", pageData{Title: localize(lang, "تنظیمات پنل | NexaGate", "Panel settings | NexaGate"), ActiveNav: "panel", Config: s.configSnapshot()})
+	s.render(w, r, "panel-settings", pageData{Title: localize(lang, "تنظیمات پنل | NexaGate", "Panel settings | NexaGate"), ActiveNav: "panel", CSRF: r.Header.Get("X-NexaGate-CSRF"), Config: s.configSnapshot()})
+}
+
+func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
+	current, next, confirm := r.FormValue("current_password"), r.FormValue("new_password"), r.FormValue("confirm_password")
+	s.cfgMu.Lock()
+	defer s.cfgMu.Unlock()
+	if !verifyPassword(s.cfg.AdminHash, current) {
+		http.Error(w, "current password is incorrect", http.StatusUnauthorized)
+		return
+	}
+	if next != confirm {
+		http.Error(w, "new passwords do not match", http.StatusBadRequest)
+		return
+	}
+	hash, err := hashPassword(next)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	cfg := s.cfg
+	cfg.AdminHash = hash
+	if err := saveJSONAtomic(s.configPath, cfg, 0600); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.cfg = cfg
+	s.audit(r, "admin_password_changed", "panel")
+	http.Redirect(w, r, "/settings/panel?password=changed", http.StatusSeeOther)
+}
+
+func (s *server) realityScanAPI(w http.ResponseWriter, r *http.Request) {
+	results, err := scanRealityTargets(r.Context(), r.FormValue("target"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(results)
+}
+
+func (s *server) updateRealityTarget(w http.ResponseWriter, r *http.Request) {
+	target := strings.TrimSpace(strings.TrimSuffix(r.FormValue("target"), ":443"))
+	if net.ParseIP(target) != nil {
+		http.Error(w, "IP scan results are informational; choose a domain target", http.StatusBadRequest)
+		return
+	}
+	results, err := scanRealityTargets(r.Context(), target)
+	if err != nil || len(results) != 1 || results[0].Status != "feasible" || !results[0].Selectable {
+		http.Error(w, "target did not pass the REALITY TLS probe", http.StatusBadRequest)
+		return
+	}
+	s.cfgMu.Lock()
+	defer s.cfgMu.Unlock()
+	cfg := s.cfg
+	cfg.Reality.Target = target
+	if err := Render(cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := saveJSONAtomic(s.configPath, cfg, 0600); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.cfg = cfg
+	s.audit(r, "reality_target_changed", target)
+	http.Redirect(w, r, "/settings/panel?reality=changed", http.StatusSeeOther)
 }
 
 func (s *server) addUser(w http.ResponseWriter, r *http.Request) {

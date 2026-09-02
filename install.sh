@@ -256,19 +256,11 @@ else
   say "Detected public IPv4: $PUBLIC_HOST"
 fi
 
-while true; do
-  read -r -s -p "Panel administrator password (at least 12 characters): " ADMIN_PASSWORD
-  printf '\n'
-  (( ${#ADMIN_PASSWORD} >= 12 )) || { echo "Password is too short." >&2; continue; }
-  read -r -s -p "Repeat administrator password: " ADMIN_PASSWORD_REPEAT
-  printf '\n'
-  [[ $ADMIN_PASSWORD == "$ADMIN_PASSWORD_REPEAT" ]] && break
-  echo "Passwords do not match." >&2
-done
-unset ADMIN_PASSWORD_REPEAT
-read -r -p "REALITY camouflage target [www.microsoft.com]: " REALITY_TARGET
-REALITY_TARGET=${REALITY_TARGET:-www.microsoft.com}
-[[ $REALITY_TARGET =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || die "The REALITY target is invalid."
+ADMIN_PASSWORD=$(openssl rand -base64 24 | tr '/+' '_-')
+[[ ${#ADMIN_PASSWORD} -ge 24 ]] || die "Could not generate the initial panel password."
+# Keep installation non-interactive. The administrator can use the integrated
+# scanner and change this default target later from Panel Settings.
+REALITY_TARGET=www.microsoft.com
 
 WEBROOT=/var/www/html
 mkdir -p "$WEBROOT/.well-known/acme-challenge"
@@ -410,7 +402,7 @@ REALITY_PUBLIC=$(awk -F': ' 'NR==2{print $2}' <<<"$REALITY_OUTPUT")
 [[ -n $REALITY_PRIVATE && -n $REALITY_PUBLIC ]] || die "Could not generate the REALITY X25519 key pair."
 printf '%s\n' "$ADMIN_PASSWORD" >"$WORK_DIR/admin-password"
 printf '%s\n' "$REALITY_PRIVATE" >"$WORK_DIR/reality-private"
-unset ADMIN_PASSWORD REALITY_PRIVATE REALITY_OUTPUT
+unset REALITY_PRIVATE REALITY_OUTPUT
 
 say "Initializing the panel and generated service configurations..."
 /usr/local/bin/nexagate init \
@@ -473,7 +465,16 @@ elif systemctl is-active --quiet firewalld; then
 fi
 
 say "Installation completed successfully."
-printf 'Panel: https://%s:8443/\n' "$PUBLIC_HOST"
+INITIAL_CREDENTIALS=/root/nexagate-initial-credentials.txt
+install -m 0600 /dev/null "$INITIAL_CREDENTIALS"
+{
+  printf 'Panel URL: https://%s:8443/\n' "$PUBLIC_HOST"
+  printf 'Initial password: %s\n' "$ADMIN_PASSWORD"
+} >"$INITIAL_CREDENTIALS"
+printf '\nPanel URL: https://%s:8443/\n' "$PUBLIC_HOST"
+printf 'Initial administrator password: %s\n' "$ADMIN_PASSWORD"
+printf 'A root-only copy is stored at %s. Delete it after changing the password in Panel Settings.\n' "$INITIAL_CREDENTIALS"
+unset ADMIN_PASSWORD
 printf 'Routing: TCP -> Psiphon, UDP/DNS -> WARP (fail closed)\n'
 printf 'Run diagnostics: sudo nexagate doctor\n'
 printf 'Important: also open TCP 80,443,2053,8443,8444 and UDP 443 in your cloud firewall/security group.\n'
