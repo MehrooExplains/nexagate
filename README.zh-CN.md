@@ -1,6 +1,6 @@
 # NexaGate
 
-轻量级控制面板，支持 Hysteria2、VLESS XHTTP Reality、VLESS XHTTP TLS、RAW Reality 和 WebSocket TLS。
+`v0.3.0` 轻量级控制面板，支持 Hysteria2、VLESS XHTTP Reality、VLESS XHTTP TLS、RAW Reality 和 WebSocket TLS。
 
 ## 快速开始
 

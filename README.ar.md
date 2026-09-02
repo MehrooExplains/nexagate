@@ -1,6 +1,6 @@
 # NexaGate
 
-لوحة تحكم خفيفة تدعم Hysteria2 وVLESS XHTTP Reality وVLESS XHTTP TLS وRAW Reality وWebSocket TLS.
+لوحة تحكم خفيفة بالإصدار `v0.3.0` تدعم Hysteria2 وVLESS XHTTP Reality وVLESS XHTTP TLS وRAW Reality وWebSocket TLS.
 
 ## البدء السريع
 

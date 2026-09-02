@@ -22,7 +22,7 @@ NexaGate is an early Linux server project that combines five censorship-resistan
 - inner **UDP** traffic and tunnel DNS exit through **Cloudflare WARP**;
 - a fail-closed firewall prevents Xray, Hysteria, and the DNS relay from silently falling back to the server's normal Internet route.
 
-> Project status: `0.2.0`. Test it on a fresh, recoverable server before using it in production. No protocol or server can guarantee access under every filtering policy.
+> Project status: `0.3.0`. This release adds the integrated REALITY Target Scanner, simplified first-time setup with a random administrator password, and expanded documentation in five languages. Test it on a fresh, recoverable server before using it in production. No protocol or server can guarantee access under every filtering policy.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ The complete commit IDs and SHA-256 values are kept in `install.sh`; a checksum 
 
 ## Supported systems
 
-The initial release supports:
+The `0.3.0` release supports:
 
 - a fresh systemd-based Linux server;
 - `amd64` / `x86_64` architecture;

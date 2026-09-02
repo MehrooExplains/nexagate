@@ -1,6 +1,6 @@
 # NexaGate
 
-Панель управления с маршрутами Hysteria2, VLESS XHTTP Reality, VLESS XHTTP TLS, RAW Reality и WebSocket TLS.
+Панель управления `v0.3.0` с маршрутами Hysteria2, VLESS XHTTP Reality, VLESS XHTTP TLS, RAW Reality и WebSocket TLS.
 
 ## Быстрый старт
 
